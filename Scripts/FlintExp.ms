@@ -36,7 +36,6 @@ fn exportCFT dir name csName =
 	deleteFile (dir + name + ".cft")
 
 	local cftexp = createfile (dir + name + ".cft")
-	openfile (dir + name + ".cft")
 	local Shapka = "flinttab\nnglass=	1.506\nxsize=	50\nysize=	50\nzsize=	50\n" as string
 	format Shapka to: cftexp
 	for Nobj = 1 to geometry.count do
@@ -62,6 +61,26 @@ fn exportCFT dir name csName =
 	)
 	close cftexp
 	SetArrowCursor()
+)
+
+-- Run sorter EXE, wait for completion, report result
+fn runSorter exePath cftPath bftPath =
+(
+	local psi = dotNetObject "System.Diagnostics.ProcessStartInfo"
+	psi.FileName = exePath
+	psi.Arguments = "\"" + cftPath + "\" \"" + bftPath + "\" 14 10"
+	psi.UseShellExecute = false
+	psi.CreateNoWindow = true
+	psi.RedirectStandardOutput = true
+	local proc = (dotNetClass "System.Diagnostics.Process").Start psi
+	local output = proc.StandardOutput.ReadToEnd()
+	proc.WaitForExit()
+	local result = proc.ExitCode
+	proc.Close()
+	if result != 0 then
+		messageBox ("Sort failed:\n" + output) title:"Error"
+	else
+		messageBox "Sort completed!" title:"CFTSORT"
 )
 
 on chooseit picked obj do 
@@ -137,8 +156,7 @@ local bftFile = getSaveFileName caption:"Save BFT file" filename:(cftDir + cftNa
 if bftFile != undefined do
 (
 	exportCFT cftDir cftName chooseit.text
-	parametr = (cftDir + cftName + ".cft ") + bftFile + " 14 10"
-	ShellLaunch (scriptDir + "cftsort.exe") parametr
+	runSorter (scriptDir + "cftsort.exe") (cftDir + cftName + ".cft") bftFile
 )
 )
 
@@ -148,8 +166,7 @@ local bftFile = getSaveFileName caption:"Save BFT file" filename:(cftDir + cftNa
 if bftFile != undefined do
 (
 	exportCFT cftDir cftName chooseit.text
-	parametr = (cftDir + cftName + ".cft ") + bftFile + " 14 10"
-	ShellLaunch (scriptDir + "cftsort32.exe") parametr
+	runSorter (scriptDir + "cftsort32.exe") (cftDir + cftName + ".cft") bftFile
 )
 )
 
