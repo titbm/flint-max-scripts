@@ -7,11 +7,12 @@ local scriptDir = getFilenamePath (getSourceFileName())
 -- 3ds Max 2013+ is 64-bit only, so Sort 16-bit is always disabled
 local is64bit = ((dotNetClass "System.Environment").GetEnvironmentVariable "PROCESSOR_ARCHITECTURE") == "AMD64"
 
+-- Intermediate CFT file: scriptDir + cftName + ".cft"
+local cftDir = scriptDir
+local cftName = "fromviz"
+
 label lab2 "Coordinate System"
 pickbutton chooseit "Current Coord System"
-edittext dirname "Dir: " text: scriptDir enabled:false 
-
-edittext filename "Name: " text: "fromviz"
 button cftSort "Sort 16-bit" enabled:(not is64bit)
 button cftSort2 "Sort 32-bit"
 
@@ -26,7 +27,7 @@ fn exportCFT dir name csName =
 (
 	SetWaitCursor()
 
-	local masterTM = if csName == "Current Coord System" then (matrix3 1) else master
+	local masterTM = if csName == "Current Coord System" then (matrix3 1) else masterXform
 
 	local ScalFil = 10
 
@@ -64,7 +65,7 @@ fn exportCFT dir name csName =
 on chooseit picked obj do 
 (
 
-global master = obj.transform 
+global masterXform = obj.transform 
 chooseit.text = obj.name 
 ) 
 
@@ -74,7 +75,7 @@ on ImpoprtBut pressed do
 
 	if chooseit.text == "Current Coord System" do 
 			(
-			master = (matrix3 1) --getCPTM ()
+			masterXform = (matrix3 1) --getCPTM ()
 			)
 
 	ScalFil = 10
@@ -119,7 +120,7 @@ while not(eof myFile) do
 	Nvert += 1
 	setnumverts Dino Nvert true 
 	
-	in coordsys master (setvert Dino Nvert Coord)
+	in coordsys masterXform (setvert Dino Nvert Coord)
 
 	)
 close myFile
@@ -130,22 +131,22 @@ select Dino
 
 on cftSort pressed do
 (
-local bftFile = getSaveFileName caption:"Save BFT file" filename:(dirname.text + filename.text + ".bft") types:"BFT Files (*.bft)|*.bft|"
+local bftFile = getSaveFileName caption:"Save BFT file" filename:(cftDir + cftName + ".bft") types:"BFT Files (*.bft)|*.bft|"
 if bftFile != undefined do
 (
-	exportCFT dirname.text filename.text chooseit.text
-	parametr = (dirname.text + filename.text + ".cft ") + bftFile + " 14 10"
+	exportCFT cftDir cftName chooseit.text
+	parametr = (cftDir + cftName + ".cft ") + bftFile + " 14 10"
 	ShellLaunch (scriptDir + "cftsort.exe") parametr
 )
 )
 
 on cftSort2 pressed do
 (
-local bftFile = getSaveFileName caption:"Save BFT file" filename:(dirname.text + filename.text + ".bft") types:"BFT Files (*.bft)|*.bft|"
+local bftFile = getSaveFileName caption:"Save BFT file" filename:(cftDir + cftName + ".bft") types:"BFT Files (*.bft)|*.bft|"
 if bftFile != undefined do
 (
-	exportCFT dirname.text filename.text chooseit.text
-	parametr = (dirname.text + filename.text + ".cft ") + bftFile + " 14 10"
+	exportCFT cftDir cftName chooseit.text
+	parametr = (cftDir + cftName + ".cft ") + bftFile + " 14 10"
 	ShellLaunch (scriptDir + "cftsort32.exe") parametr
 )
 )
