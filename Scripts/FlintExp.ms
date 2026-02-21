@@ -55,7 +55,7 @@ fn exportCFT dir name csName =
 	SetArrowCursor()
 )
 
--- Run sorter EXE with .NET progress window (marquee)
+-- Run sorter EXE with .NET progress window (real % from stdout)
 fn runSorter exePath cftPath bftPath =
 (
 	local psi = dotNetObject "System.Diagnostics.ProcessStartInfo"
@@ -63,6 +63,7 @@ fn runSorter exePath cftPath bftPath =
 	psi.Arguments = "\"" + cftPath + "\" \"" + bftPath + "\" 14 10"
 	psi.UseShellExecute = false
 	psi.CreateNoWindow = true
+	psi.RedirectStandardOutput = true
 
 	-- Progress form
 	local frm = dotNetObject "System.Windows.Forms.Form"
@@ -75,13 +76,13 @@ fn runSorter exePath cftPath bftPath =
 
 	local pb = dotNetObject "System.Windows.Forms.ProgressBar"
 	pb.Minimum = 0
-	pb.Maximum = 1000
+	pb.Maximum = 100
 	pb.Value = 0
 	pb.Dock = (dotNetClass "System.Windows.Forms.DockStyle").Top
 	pb.Height = 23
 
 	local lbl = dotNetObject "System.Windows.Forms.Label"
-	lbl.Text = "Sorting points... 0 sec"
+	lbl.Text = "Sorting points... 0%"
 	lbl.Dock = (dotNetClass "System.Windows.Forms.DockStyle").Fill
 	lbl.TextAlign = (dotNetClass "System.Drawing.ContentAlignment").MiddleCenter
 
@@ -90,20 +91,38 @@ fn runSorter exePath cftPath bftPath =
 	frm.Show()
 
 	local proc = (dotNetClass "System.Diagnostics.Process").Start psi
-	local elapsed = 0
 
 	while not proc.HasExited do
 	(
-		sleep 0.3
-		elapsed += 1
-		-- asymptotic fill: approaches 1000 but never reaches it until done
-		pb.Value = (1000 - (1000 / (elapsed + 1))) as integer
-		lbl.Text = "Sorting points... " + ((elapsed * 0.3) as integer) as string + " sec"
+		while proc.StandardOutput.Peek() != -1 do
+		(
+			local line = proc.StandardOutput.ReadLine()
+			if (findString line "PROGRESS:") == 1 then
+			(
+				local pct = (substring line 10 -1) as integer
+				if pct != undefined then
+				(
+					pb.Value = pct
+					lbl.Text = "Sorting points... " + pct as string + "%"
+				)
+			)
+		)
 		(dotNetClass "System.Windows.Forms.Application").DoEvents()
+		sleep 0.05
 	)
 
-	pb.Value = 1000
+	pb.Value = 100
+	lbl.Text = "Sorting points... 100%"
+	frm.Refresh()
+	sleep 0.3
 	frm.Close()
+	local result = proc.ExitCode
+	proc.Close()
+	if result != 0 then
+		messageBox "Sort failed!" title:"Error"
+	else
+		messageBox "Sort completed!" title:"CFTSORT"
+)
 	local result = proc.ExitCode
 	proc.Close()
 	if result != 0 then

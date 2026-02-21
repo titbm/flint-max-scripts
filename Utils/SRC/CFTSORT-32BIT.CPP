@@ -260,7 +260,8 @@ static void phase2_nn(void)
         pct = i * 100L / npoints;
         if (pct != last_pct) {
             last_pct = pct;
-            printf("Phase 2 (NN): %ld%%\r", pct);
+            printf("PROGRESS:%ld\n", pct);
+            fflush(stdout);
         }
         if (kbhit() && getch() == 0x1b) {
             printf("\nAborted.\n");
