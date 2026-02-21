@@ -33,7 +33,7 @@ static long   npoints  = 0;
 static long   capacity = 0;
 static int16 *points   = NULL;   /* [x0,y0,z0, x1,y1,z1, ...] */
 static int    k_up, k_down;
-static double nglass;
+static int    nglass;   /* refractive index * 1000 (e.g. 1506 for 1.506) */
 static int16  xsize, ysize, zsize;
 
 /* ---- Tour as doubly-linked list (indexed by point index) ---- */
@@ -535,7 +535,18 @@ static long read_cft(const char *filename)
     /* Header: nglass, xsize, ysize, zsize */
     fgets(buf, sizeof(buf), fp);
     tok = strtok(buf, "\t\n"); tok = strtok(NULL, "\t\n");
-    if (tok) nglass = atof(tok);
+    if (tok) {
+        /* locale-safe parse of "X.YYY" — avoid atof() which is locale-dependent */
+        int ng_i = 0, ng_f = 0, ng_fd = 0;
+        char *p = tok;
+        while (*p >= '0' && *p <= '9') ng_i = ng_i * 10 + (*p++ - '0');
+        if (*p == '.') {
+            p++;
+            while (*p >= '0' && *p <= '9' && ng_fd < 3) { ng_f = ng_f * 10 + (*p++ - '0'); ng_fd++; }
+        }
+        while (ng_fd < 3) { ng_f *= 10; ng_fd++; }
+        nglass = ng_i * 1000 + ng_f; /* e.g. 1506 */
+    }
 
     fgets(buf, sizeof(buf), fp);
     tok = strtok(buf, "\t\n"); tok = strtok(NULL, "\t\n");
@@ -582,7 +593,7 @@ static int write_bft(const char *filename)
     int16 hdr[7];
 
     hdr[0] = 0x6662;
-    hdr[1] = (int16)(nglass * 1000.0);
+    hdr[1] = (int16)nglass;
     hdr[2] = xsize;
     hdr[3] = ysize;
     hdr[4] = zsize;
