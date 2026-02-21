@@ -74,8 +74,9 @@ fn runSorter exePath cftPath bftPath =
 	frm.ControlBox = false
 
 	local pb = dotNetObject "System.Windows.Forms.ProgressBar"
-	pb.Style = (dotNetClass "System.Windows.Forms.ProgressBarStyle").Marquee
-	pb.MarqueeAnimationSpeed = 30
+	pb.Minimum = 0
+	pb.Maximum = 1000
+	pb.Value = 0
 	pb.Dock = (dotNetClass "System.Windows.Forms.DockStyle").Top
 	pb.Height = 23
 
@@ -95,10 +96,13 @@ fn runSorter exePath cftPath bftPath =
 	(
 		sleep 0.3
 		elapsed += 1
-		lbl.Text = "Sorting points... " + (elapsed * 0.3 as integer) as string + " sec"
-		frm.Refresh()
+		-- asymptotic fill: approaches 1000 but never reaches it until done
+		pb.Value = (1000 - (1000 / (elapsed + 1))) as integer
+		lbl.Text = "Sorting points... " + ((elapsed * 0.3) as integer) as string + " sec"
+		(dotNetClass "System.Windows.Forms.Application").DoEvents()
 	)
 
+	pb.Value = 1000
 	frm.Close()
 	local result = proc.ExitCode
 	proc.Close()
