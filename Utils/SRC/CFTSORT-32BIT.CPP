@@ -1,16 +1,16 @@
 /*
- * CFTSORT2 — Convert CFT (text) to BFT (binary) with optimized sorting
+ * CFTSORT2 — Convert CFT (text) to BFT (binary) with grid-accelerated sorting
  *
  * Enhanced version of CFTSORT.EXE for FLINT laser engraving system.
- * Compiled with Watcom C++ (32-bit DOS4GW) — no memory limits.
+ * Compiled with Watcom C++ (32-bit) — no memory limits.
  *
  * Algorithm:
- *   Phase 1: Start from point with minimum Z
+ *   Phase 1: Start from point with minimum Z (deepest in glass)
  *   Phase 2: Grid-accelerated nearest-neighbor heuristic
- *   Phase 3: Or-opt local search (chains of 1-3 points, no reversal)
  *
- * Or-opt is correct for asymmetric metrics (unlike 2-opt which reverses
- * segments and flips dz signs).
+ * Note: or-opt reordering is intentionally omitted — laser physics requires
+ * engraving from deepest Z to shallowest Z. The NN heuristic respects this
+ * naturally (k_up >> k_down makes going shallower expensive).
  *
  * Usage: CFTSORT2 source.cft dest.bft K_up K_down
  */
@@ -26,7 +26,6 @@ typedef short int16;
 #define MAX_POINTS  16000000L
 #define INITIAL_CAP     50000L
 #define GRID_EMPTY      (-1L)
-#define OROPT_WINDOW      500   /* search window for or-opt (positions) */
 
 /* ---- Point data ---- */
 static long   npoints  = 0;
@@ -289,180 +288,6 @@ static void phase2_nn(void)
 }
 
 /* ==================================================================
- * Tour cost (traverse linked list)
- * ================================================================== */
-static long tour_cost(void)
-{
-    long cost = 0, cur = tour_head;
-    while (tour_next[cur] != GRID_EMPTY) {
-        cost += calc_delta(cur, tour_next[cur]);
-        cur = tour_next[cur];
-    }
-    return cost;
-}
-
-/* ==================================================================
- * Or-opt helpers
- * ================================================================== */
-
-/*
- * Compute cost change of removing chain [seg_s..seg_e] and inserting
- * it after point 'after'. Negative = improvement.
- */
-static long or_opt_change(long seg_s, long seg_e, long after)
-{
-    long ps  = tour_prev[seg_s];
-    long ne  = tour_next[seg_e];
-    long anx = tour_next[after];
-    long saved = 0, added = 0;
-
-    /* Edges removed by extracting chain */
-    if (ps != GRID_EMPTY)  saved += calc_delta(ps, seg_s);
-    if (ne != GRID_EMPTY)  saved += calc_delta(seg_e, ne);
-
-    /* Edge created by closing the gap */
-    if (ps != GRID_EMPTY && ne != GRID_EMPTY)
-        added += calc_delta(ps, ne);
-
-    /* Edge broken at insertion point */
-    if (anx != GRID_EMPTY) saved += calc_delta(after, anx);
-
-    /* Edges created by inserting chain */
-    added += calc_delta(after, seg_s);
-    if (anx != GRID_EMPTY) added += calc_delta(seg_e, anx);
-
-    return added - saved;
-}
-
-/* Execute the chain move in the linked list */
-static void or_opt_move(long seg_s, long seg_e, long after)
-{
-    long ps  = tour_prev[seg_s];
-    long ne  = tour_next[seg_e];
-    long anx = tour_next[after];
-
-    /* Remove chain from current position */
-    if (ps != GRID_EMPTY) tour_next[ps] = ne;
-    else                  tour_head = ne;
-
-    if (ne != GRID_EMPTY) tour_prev[ne] = ps;
-    else                  tour_tail = ps;
-
-    /* Insert chain after 'after' */
-    tour_next[after] = seg_s;
-    tour_prev[seg_s] = after;
-
-    tour_next[seg_e] = anx;
-    if (anx != GRID_EMPTY) tour_prev[anx] = seg_e;
-    else                   tour_tail = seg_e;
-}
-
-/* ==================================================================
- * Phase 3: Or-opt local search
- *
- * For chain lengths 1, 2, 3: try removing each chain and reinserting
- * within a window of OROPT_WINDOW positions forward/backward.
- * No segment reversal → correct for asymmetric metrics.
- * ================================================================== */
-static void phase3_or_opt(void)
-{
-    int pass, improved, len, c;
-    long total_before, total_after;
-    long seg_s, seg_e, next_s;
-    long probe, best_after, best_change, change;
-    int steps, ok;
-    long count;
-    long pct, last_pct;
-
-    total_before = tour_cost();
-    printf("Path cost before or-opt: %ld\n", total_before);
-
-    for (pass = 1; pass <= 5; pass++) {
-        improved = 0;
-
-        for (len = 1; len <= 3; len++) {
-            seg_s = tour_head;
-            count = 0;
-            last_pct = -1;
-
-            while (seg_s != GRID_EMPTY) {
-                /* Build chain of 'len' points starting at seg_s */
-                seg_e = seg_s;
-                ok = 1;
-                for (c = 1; c < len; c++) {
-                    if (tour_next[seg_e] == GRID_EMPTY) { ok = 0; break; }
-                    seg_e = tour_next[seg_e];
-                }
-                if (!ok) break;
-
-                /* Save next start before potential move */
-                next_s = tour_next[seg_s];
-
-                best_after  = GRID_EMPTY;
-                best_change = 0;
-
-                /* --- Forward search (after the chain) --- */
-                probe = tour_next[seg_e];
-                for (steps = 0; steps < OROPT_WINDOW && probe != GRID_EMPTY; steps++) {
-                    change = or_opt_change(seg_s, seg_e, probe);
-                    if (change < best_change) {
-                        best_change = change;
-                        best_after  = probe;
-                    }
-                    probe = tour_next[probe];
-                }
-
-                /* --- Backward search (before the chain) --- */
-                /* Skip tour_prev[seg_s] — inserting there is a no-op */
-                probe = tour_prev[seg_s];
-                if (probe != GRID_EMPTY) probe = tour_prev[probe];
-                for (steps = 0; steps < OROPT_WINDOW && probe != GRID_EMPTY; steps++) {
-                    change = or_opt_change(seg_s, seg_e, probe);
-                    if (change < best_change) {
-                        best_change = change;
-                        best_after  = probe;
-                    }
-                    probe = tour_prev[probe];
-                }
-
-                /* Apply best improving move */
-                if (best_after != GRID_EMPTY && best_change < 0) {
-                    or_opt_move(seg_s, seg_e, best_after);
-                    improved = 1;
-                }
-
-                seg_s = next_s;
-                count++;
-
-                pct = count * 100L / npoints;
-                if (pct != last_pct) {
-                    last_pct = pct;
-                    printf("Phase 3 (or-opt pass %d, len %d): %ld%%\r",
-                           pass, len, pct);
-                }
-
-                if (kbhit() && getch() == 0x1b) {
-                    printf("\nOr-opt aborted.\n");
-                    goto done;
-                }
-            }
-        }
-
-        printf("Phase 3 (or-opt pass %d): 100%%       \n", pass);
-        if (!improved) break;
-    }
-
-done:
-    total_after = tour_cost();
-    printf("Path cost after or-opt:  %ld\n", total_after);
-    if (total_before > 0) {
-        printf("Improvement: %.1f%%\n",
-               (double)(total_before - total_after) * 100.0 /
-               (double)total_before);
-    }
-}
-
-/* ==================================================================
  * Flatten tour: reorder points[] to match linked list order
  * ================================================================== */
 static void flatten_tour(void)
@@ -618,7 +443,7 @@ static void usage(void)
     printf("Usage:  CFTSORT2 source.cft dest.bft K_up K_down\n");
     printf("  K_up   = Z weight (1-1000) for upward movement\n");
     printf("  K_down = Z weight (1-1000) for downward movement\n");
-    printf("\nAlgorithm: grid NN + or-opt (correct for asymmetric metric)\n");
+    printf("\nAlgorithm: grid-accelerated nearest-neighbor (Z-monotone)\n");
 }
 
 int main(int argc, char *argv[])
@@ -650,8 +475,7 @@ int main(int argc, char *argv[])
     }
 
     /* Sort */
-    phase2_nn();        /* includes Phase 1 (min-Z) + grid NN */
-    phase3_or_opt();    /* or-opt local search */
+    phase2_nn();        /* Phase 1 (min-Z) + grid NN */
     flatten_tour();     /* linked list -> flat array */
 
     /* Write */
