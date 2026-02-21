@@ -14,11 +14,7 @@ pickbutton chooseit "Current Coord System"
 button cftSort "Sort 16-bit" enabled:(not is64bit)
 button cftSort2 "Sort 32-bit"
 
-local CFTab = getFiles (scriptDir + "*.cft")
-
- listbox   FileBox "Select File to import" items:CFTab
-		height:3
- button ImpoprtBut "Import file"
+button ImpoprtBut "Import CFT..."
 
 -- Export scene geometry to CFT file
 fn exportCFT dir name csName =
@@ -162,7 +158,13 @@ on ImpoprtBut pressed do
 --	) 
 
 
-myFile = openFile FileBox.selected mode:"r"
+local cftPath = getOpenFileName \
+		caption:"Select CFT file" \
+		types:"CFT Files (*.cft)|*.cft|All Files (*.*)|*.*"
+	if cftPath == undefined do return()
+
+	myFile = openFile cftPath mode:"r"
+	if myFile == undefined do ( messageBox "Cannot open file." title:"Error"; return() )
 
 skipToNextLine myFile
 skipToNextLine myFile
