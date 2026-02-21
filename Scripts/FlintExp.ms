@@ -7,10 +7,6 @@ local scriptDir = getFilenamePath (getSourceFileName())
 -- 3ds Max 2013+ is 64-bit only, so Sort 16-bit is always disabled
 local is64bit = ((dotNetClass "System.Environment").GetEnvironmentVariable "PROCESSOR_ARCHITECTURE") == "AMD64"
 
--- Intermediate CFT file: temp folder
-local cftDir = getDir #temp + "\\"
-local cftName = "fromviz"
-
 global masterXform = (matrix3 1)
 
 label lab2 "Coordinate System"
@@ -83,6 +79,26 @@ fn runSorter exePath cftPath bftPath =
 		messageBox "Sort completed!" title:"CFTSORT"
 )
 
+-- Get base filename from current 3ds Max scene, or fall back to "fromviz"
+fn getSceneName =
+(
+	local n = getFilenameFile maxFileName
+	if n == "" then "fromviz" else n
+)
+
+-- Open folder browser dialog, return path with trailing backslash or undefined
+fn pickOutputFolder =
+(
+	local fbd = dotNetObject "System.Windows.Forms.FolderBrowserDialog"
+	fbd.Description = "Select folder to save CFT and BFT files"
+	fbd.SelectedPath = maxFilePath
+	local dr = fbd.ShowDialog()
+	if dr.Equals ((dotNetClass "System.Windows.Forms.DialogResult").OK) then
+		(fbd.SelectedPath + "\\")
+	else
+		undefined
+)
+
 on chooseit picked obj do 
 (
 
@@ -152,22 +168,24 @@ select Dino
 
 on cftSort pressed do
 (
-local bftFile = getSaveFileName caption:"Save BFT file" filename:(cftDir + cftName + ".bft") types:"BFT Files (*.bft)|*.bft|"
-if bftFile != undefined do
-(
-	exportCFT cftDir cftName chooseit.text
-	runSorter (scriptDir + "cftsort.exe") (cftDir + cftName + ".cft") bftFile
-)
+	local folder = pickOutputFolder()
+	if folder != undefined do
+	(
+		local baseName = getSceneName()
+		exportCFT folder baseName chooseit.text
+		runSorter (scriptDir + "cftsort.exe") (folder + baseName + ".cft") (folder + baseName + ".bft")
+	)
 )
 
 on cftSort2 pressed do
 (
-local bftFile = getSaveFileName caption:"Save BFT file" filename:(cftDir + cftName + ".bft") types:"BFT Files (*.bft)|*.bft|"
-if bftFile != undefined do
-(
-	exportCFT cftDir cftName chooseit.text
-	runSorter (scriptDir + "cftsort32.exe") (cftDir + cftName + ".cft") bftFile
-)
+	local folder = pickOutputFolder()
+	if folder != undefined do
+	(
+		local baseName = getSceneName()
+		exportCFT folder baseName chooseit.text
+		runSorter (scriptDir + "cftsort32.exe") (folder + baseName + ".cft") (folder + baseName + ".bft")
+	)
 )
 
 )
