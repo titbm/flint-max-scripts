@@ -4,7 +4,7 @@ utility expUtil "Export Flint"
 local scriptDir = getFilenamePath (getSourceFileName())
 
 -- 16-bit EXE cannot run on 64-bit Windows (no NTVDM)
-local is64bit = (sysInfo.processorCount; try (sysInfo.is64BitOS) catch (environmentVariable "PROCESSOR_ARCHITEW6432" != undefined or environmentVariable "PROCESSOR_ARCHITECTURE" == "AMD64"))
+local is64bit = sysInfo.is64BitOS
 
 label lab2 "Coordinate System"
 pickbutton chooseit "Current Coord System"
