@@ -59,24 +59,20 @@ fn exportCFT dir name csName =
 	SetArrowCursor()
 )
 
--- Run sorter EXE, wait for completion, report result
+-- Run sorter EXE in visible console window, wait for completion
 fn runSorter exePath cftPath bftPath =
 (
 	local psi = dotNetObject "System.Diagnostics.ProcessStartInfo"
 	psi.FileName = exePath
 	psi.Arguments = "\"" + cftPath + "\" \"" + bftPath + "\" 14 10"
 	psi.UseShellExecute = false
-	psi.CreateNoWindow = true
-	psi.RedirectStandardOutput = true
+	psi.CreateNoWindow = false  -- show console so user sees progress
 	local proc = (dotNetClass "System.Diagnostics.Process").Start psi
-	local output = proc.StandardOutput.ReadToEnd()
 	proc.WaitForExit()
 	local result = proc.ExitCode
 	proc.Close()
 	if result != 0 then
-		messageBox ("Sort failed:\n" + output) title:"Error"
-	else
-		messageBox "Sort completed!" title:"CFTSORT"
+		messageBox "Sort failed! See console output for details." title:"Error"
 )
 
 -- Get base filename from current 3ds Max scene, or fall back to "fromviz"
