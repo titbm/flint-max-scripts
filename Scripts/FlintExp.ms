@@ -59,20 +59,55 @@ fn exportCFT dir name csName =
 	SetArrowCursor()
 )
 
--- Run sorter EXE in visible console window, wait for completion
+-- Run sorter EXE with .NET progress window (marquee)
 fn runSorter exePath cftPath bftPath =
 (
 	local psi = dotNetObject "System.Diagnostics.ProcessStartInfo"
 	psi.FileName = exePath
 	psi.Arguments = "\"" + cftPath + "\" \"" + bftPath + "\" 14 10"
 	psi.UseShellExecute = false
-	psi.CreateNoWindow = false  -- show console so user sees progress
+	psi.CreateNoWindow = true
+
+	-- Progress form
+	local frm = dotNetObject "System.Windows.Forms.Form"
+	frm.Text = "CFTSORT"
+	frm.Width = 350
+	frm.Height = 100
+	frm.StartPosition = (dotNetClass "System.Windows.Forms.FormStartPosition").CenterScreen
+	frm.FormBorderStyle = (dotNetClass "System.Windows.Forms.FormBorderStyle").FixedDialog
+	frm.ControlBox = false
+
+	local pb = dotNetObject "System.Windows.Forms.ProgressBar"
+	pb.Style = (dotNetClass "System.Windows.Forms.ProgressBarStyle").Marquee
+	pb.MarqueeAnimationSpeed = 30
+	pb.Dock = (dotNetClass "System.Windows.Forms.DockStyle").Top
+	pb.Height = 23
+
+	local lbl = dotNetObject "System.Windows.Forms.Label"
+	lbl.Text = "Sorting points... 0 sec"
+	lbl.Dock = (dotNetClass "System.Windows.Forms.DockStyle").Fill
+	lbl.TextAlign = (dotNetClass "System.Drawing.ContentAlignment").MiddleCenter
+
+	frm.Controls.Add lbl
+	frm.Controls.Add pb
+	frm.Show()
+
 	local proc = (dotNetClass "System.Diagnostics.Process").Start psi
-	proc.WaitForExit()
+	local elapsed = 0
+
+	while not proc.HasExited do
+	(
+		sleep 0.3
+		elapsed += 1
+		lbl.Text = "Sorting points... " + (elapsed * 0.3 as integer) as string + " sec"
+		frm.Refresh()
+	)
+
+	frm.Close()
 	local result = proc.ExitCode
 	proc.Close()
 	if result != 0 then
-		messageBox "Sort failed! See console output for details." title:"Error"
+		messageBox "Sort failed!" title:"Error"
 	else
 		messageBox "Sort completed!" title:"CFTSORT"
 )
@@ -84,15 +119,20 @@ fn getSceneName =
 	if n == "" then "fromviz" else n
 )
 
+global lastExportFolder = ""
+
 -- Open folder browser dialog, return path with trailing backslash or undefined
 fn pickOutputFolder =
 (
 	local fbd = dotNetObject "System.Windows.Forms.FolderBrowserDialog"
 	fbd.Description = "Select folder to save CFT and BFT files"
-	fbd.SelectedPath = maxFilePath
+	fbd.SelectedPath = if lastExportFolder != "" then lastExportFolder else maxFilePath
 	local dr = fbd.ShowDialog()
 	if dr.Equals ((dotNetClass "System.Windows.Forms.DialogResult").OK) then
+	(
+		lastExportFolder = fbd.SelectedPath
 		(fbd.SelectedPath + "\\")
+	)
 	else
 		undefined
 )
@@ -137,24 +177,27 @@ while not(eof myFile) do
 	(
 	Nstring = readline myFile
 
-	numSp = findString Nstring "\t" 
+	numSp = findString Nstring "\t"
+	if numSp == undefined do continue
 	Nstring = substring Nstring (numSp+1) Nstring.count
-	
-	numSp = findString Nstring "\t" 
+
+	numSp = findString Nstring "\t"
+	if numSp == undefined do continue
 	XX = (substring Nstring 1 (numSp-1)) as float
-	
+
 	Nstring = substring Nstring (numSp+1) Nstring.count
-	numSp = findString Nstring "\t" 
+	numSp = findString Nstring "\t"
+	if numSp == undefined do continue
 	YY = (substring Nstring 1 (numSp-1)) as float
-	
+
 	Nstring = substring Nstring (numSp+1) Nstring.count
-	ZZ = (Nstring) as float
-	
+	ZZ = Nstring as float
+
 	Coord = [XX, YY, ZZ] / 100 * [1,-1,1.506] * ScalFil
 
 	Nvert += 1
-	setnumverts Dino Nvert true 
-	
+	setnumverts Dino Nvert true
+
 	in coordsys masterXform (setvert Dino Nvert Coord)
 
 	)
