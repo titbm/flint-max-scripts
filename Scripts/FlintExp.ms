@@ -11,6 +11,8 @@ local is64bit = ((dotNetClass "System.Environment").GetEnvironmentVariable "PROC
 local cftDir = getDir #temp + "\\"
 local cftName = "fromviz"
 
+global masterXform = (matrix3 1)
+
 label lab2 "Coordinate System"
 pickbutton chooseit "Current Coord System"
 button cftSort "Sort 16-bit" enabled:(not is64bit)
