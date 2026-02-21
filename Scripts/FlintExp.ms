@@ -21,11 +21,11 @@ local CFTab = getFiles (scriptDir + "*.cft")
  button ImpoprtBut "Import file"
 
 -- Export scene geometry to CFT file
-fn exportCFT dir name coordSys =
+fn exportCFT dir name csName =
 (
 	SetWaitCursor()
 
-	local masterTM = if coordSys == "Current Coord System" then (matrix3 1) else master
+	local masterTM = if csName == "Current Coord System" then (matrix3 1) else master
 
 	local ScalFil = 10
 
