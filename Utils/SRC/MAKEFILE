@@ -1,0 +1,48 @@
+#
+# Makefile for CFTSORT / BFTSORT (original + improved)
+#
+# Original: Borland C++ 4.5 — 16-bit DOS, Large memory model
+#   Run from DOSBox-X:  make -f MAKEFILE bc
+#
+# Improved: Open Watcom C++ — Win32 console (works Win95 through Win11)
+#   Run from Windows:   wmake -f MAKEFILE wc
+#
+# NOTE: Prefer using build_original.bat / build_improved.bat from Utils/
+#
+
+# --- Borland C++ 4.5 ---
+CC = bcc
+CFLAGS = -ml -3 -O1 -f
+OUTDIR = BUILD
+
+bc: $(OUTDIR)\CFTSORT.EXE $(OUTDIR)\BFTSORT.EXE
+
+$(OUTDIR)\CFTSORT.EXE: CFTSORT.CPP
+	$(CC) $(CFLAGS) -e$(OUTDIR)\CFTSORT.EXE CFTSORT.CPP
+
+$(OUTDIR)\BFTSORT.EXE: BFTSORT.CPP
+	$(CC) $(CFLAGS) -e$(OUTDIR)\BFTSORT.EXE BFTSORT.CPP
+
+# --- Open Watcom C++ (Win32) ---
+WATCOM = ..\..\Tools\WATCOM
+WPP = $(WATCOM)\binnt64\wpp386
+WLINK = $(WATCOM)\binnt64\wlink
+WFLAGS = -3r -ox -i=$(WATCOM)\h
+WLIBS = library $(WATCOM)\lib386\nt\clib3r.lib library $(WATCOM)\lib386\math3r.lib
+
+wc: $(OUTDIR)\CFTSORT32.EXE $(OUTDIR)\BFTSORT32.EXE
+
+$(OUTDIR)\CFTSORT32.EXE: CFTSORT-32BIT.CPP
+	$(WPP) $(WFLAGS) CFTSORT-32BIT.CPP
+	$(WLINK) system nt name $@ file CFTSORT-32BIT.OBJ $(WLIBS)
+
+$(OUTDIR)\BFTSORT32.EXE: BFTSORT-32BIT.CPP
+	$(WPP) $(WFLAGS) BFTSORT-32BIT.CPP
+	$(WLINK) system nt name $@ file BFTSORT-32BIT.OBJ $(WLIBS)
+
+clean:
+	del $(OUTDIR)\CFTSORT.EXE
+	del $(OUTDIR)\BFTSORT.EXE
+	del $(OUTDIR)\CFTSORT32.EXE
+	del $(OUTDIR)\BFTSORT32.EXE
+	del *.obj

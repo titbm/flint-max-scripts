@@ -1,0 +1,12 @@
+# Compiled output
+Utils/SRC/BUILD/
+
+# Temporary files
+*.OBJ
+*.ERR
+*.MAP
+*.LST
+
+# 3ds Max autosave
+*.bak
+*.max.bak
