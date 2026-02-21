@@ -68,7 +68,7 @@ fn runSorter exePath cftPath bftPath =
 	-- Progress form
 	local frm = dotNetObject "System.Windows.Forms.Form"
 	frm.Text = "CFTSORT"
-	frm.Width = 350
+	frm.Width = 700
 	frm.Height = 100
 	frm.StartPosition = (dotNetClass "System.Windows.Forms.FormStartPosition").CenterScreen
 	frm.FormBorderStyle = (dotNetClass "System.Windows.Forms.FormBorderStyle").FixedDialog
