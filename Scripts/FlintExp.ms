@@ -7,8 +7,8 @@ local scriptDir = getFilenamePath (getSourceFileName())
 -- 3ds Max 2013+ is 64-bit only, so Sort 16-bit is always disabled
 local is64bit = ((dotNetClass "System.Environment").GetEnvironmentVariable "PROCESSOR_ARCHITECTURE") == "AMD64"
 
--- Intermediate CFT file: scriptDir + cftName + ".cft"
-local cftDir = scriptDir
+-- Intermediate CFT file: temp folder
+local cftDir = getDir #temp + "\\"
 local cftName = "fromviz"
 
 label lab2 "Coordinate System"
