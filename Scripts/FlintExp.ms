@@ -4,7 +4,8 @@ utility expUtil "Export Flint"
 local scriptDir = getFilenamePath (getSourceFileName())
 
 -- 16-bit EXE cannot run on 64-bit Windows (no NTVDM)
-local is64bit = sysInfo.is64BitOS
+-- 3ds Max 2013+ is 64-bit only, so Sort 16-bit is always disabled
+local is64bit = ((dotNetClass "System.Environment").GetEnvironmentVariable "PROCESSOR_ARCHITECTURE") == "AMD64"
 
 label lab2 "Coordinate System"
 pickbutton chooseit "Current Coord System"
