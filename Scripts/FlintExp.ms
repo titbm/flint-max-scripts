@@ -73,6 +73,8 @@ fn runSorter exePath cftPath bftPath =
 	proc.Close()
 	if result != 0 then
 		messageBox "Sort failed! See console output for details." title:"Error"
+	else
+		messageBox "Sort completed!" title:"CFTSORT"
 )
 
 -- Get base filename from current 3ds Max scene, or fall back to "fromviz"
