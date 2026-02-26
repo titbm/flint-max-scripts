@@ -1,11 +1,20 @@
 utility expUtil "Export Flint"
 (
 -- Base directory: folder where this script lives
-local scriptDir = getFilenamePath (getSourceFileName())
+-- getSourceFileName() requires Max 2013+; use execute() to avoid compile error in Max 7
+local scriptDir = ""
+try ( scriptDir = getFilenamePath (execute "getSourceFileName()" ) ) catch ()
+
+-- Detect .NET support (available since Max 9 / 2007)
+local hasDotNet = false
+try ( dotNetClass "System.Object"; hasDotNet = true ) catch ()
 
 -- 16-bit EXE cannot run on 64-bit Windows (no NTVDM)
--- 3ds Max 2013+ is 64-bit only, so Sort 16-bit is always disabled
-local is64bit = ((dotNetClass "System.Environment").GetEnvironmentVariable "PROCESSOR_ARCHITECTURE") == "AMD64"
+-- Max 7 is always 32-bit, so 16-bit sort is available there
+local is64bit = false
+if hasDotNet do (
+	try ( is64bit = ((dotNetClass "System.Environment").GetEnvironmentVariable "PROCESSOR_ARCHITECTURE") == "AMD64" ) catch ()
+)
 
 global masterXform = (matrix3 1)
 
@@ -55,73 +64,85 @@ fn exportCFT dir name csName =
 	SetArrowCursor()
 )
 
--- Run sorter EXE with .NET progress window (real % from stdout)
+-- Run sorter EXE; uses .NET progress window on Max 9+, HiddenDOSCommand on Max 7
 fn runSorter exePath cftPath bftPath =
 (
-	local psi = dotNetObject "System.Diagnostics.ProcessStartInfo"
-	psi.FileName = exePath
-	psi.Arguments = "\"" + cftPath + "\" \"" + bftPath + "\" 14 10"
-	psi.UseShellExecute = false
-	psi.CreateNoWindow = true
-	psi.RedirectStandardOutput = true
+	if hasDotNet then (
+		local psi = dotNetObject "System.Diagnostics.ProcessStartInfo"
+		psi.FileName = exePath
+		psi.Arguments = "\"" + cftPath + "\" \"" + bftPath + "\" 14 10"
+		psi.UseShellExecute = false
+		psi.CreateNoWindow = true
+		psi.RedirectStandardOutput = true
 
-	-- Progress form
-	local frm = dotNetObject "System.Windows.Forms.Form"
-	frm.Text = "CFTSORT"
-	frm.Width = 700
-	frm.Height = 100
-	frm.StartPosition = (dotNetClass "System.Windows.Forms.FormStartPosition").CenterScreen
-	frm.FormBorderStyle = (dotNetClass "System.Windows.Forms.FormBorderStyle").FixedDialog
-	frm.ControlBox = false
+		-- Progress form
+		local frm = dotNetObject "System.Windows.Forms.Form"
+		frm.Text = "CFTSORT"
+		frm.Width = 700
+		frm.Height = 100
+		frm.StartPosition = (dotNetClass "System.Windows.Forms.FormStartPosition").CenterScreen
+		frm.FormBorderStyle = (dotNetClass "System.Windows.Forms.FormBorderStyle").FixedDialog
+		frm.ControlBox = false
 
-	local pb = dotNetObject "System.Windows.Forms.ProgressBar"
-	pb.Minimum = 0
-	pb.Maximum = 100
-	pb.Value = 0
-	pb.Dock = (dotNetClass "System.Windows.Forms.DockStyle").Top
-	pb.Height = 23
+		local pb = dotNetObject "System.Windows.Forms.ProgressBar"
+		pb.Minimum = 0
+		pb.Maximum = 100
+		pb.Value = 0
+		pb.Dock = (dotNetClass "System.Windows.Forms.DockStyle").Top
+		pb.Height = 23
 
-	local lbl = dotNetObject "System.Windows.Forms.Label"
-	lbl.Text = "Sorting points... 0%"
-	lbl.Dock = (dotNetClass "System.Windows.Forms.DockStyle").Fill
-	lbl.TextAlign = (dotNetClass "System.Drawing.ContentAlignment").MiddleCenter
+		local lbl = dotNetObject "System.Windows.Forms.Label"
+		lbl.Text = "Sorting points... 0%"
+		lbl.Dock = (dotNetClass "System.Windows.Forms.DockStyle").Fill
+		lbl.TextAlign = (dotNetClass "System.Drawing.ContentAlignment").MiddleCenter
 
-	frm.Controls.Add lbl
-	frm.Controls.Add pb
-	frm.Show()
+		frm.Controls.Add lbl
+		frm.Controls.Add pb
+		frm.Show()
 
-	local proc = (dotNetClass "System.Diagnostics.Process").Start psi
+		local proc = (dotNetClass "System.Diagnostics.Process").Start psi
 
-	while not proc.HasExited do
-	(
-		while proc.StandardOutput.Peek() != -1 do
+		while not proc.HasExited do
 		(
-			local line = proc.StandardOutput.ReadLine()
-			if (findString line "PROGRESS:") == 1 then
+			while proc.StandardOutput.Peek() != -1 do
 			(
-				local pct = (substring line 10 -1) as integer
-				if pct != undefined then
+				local line = proc.StandardOutput.ReadLine()
+				if (findString line "PROGRESS:") == 1 then
 				(
-					pb.Value = pct
-					lbl.Text = "Sorting points... " + pct as string + "%"
+					local pct = (substring line 10 -1) as integer
+					if pct != undefined then
+					(
+						pb.Value = pct
+						lbl.Text = "Sorting points... " + pct as string + "%"
+					)
 				)
 			)
+			(dotNetClass "System.Windows.Forms.Application").DoEvents()
+			sleep 0.05
 		)
-		(dotNetClass "System.Windows.Forms.Application").DoEvents()
-		sleep 0.05
-	)
 
-	pb.Value = 100
-	lbl.Text = "Sorting points... 100%"
-	frm.Refresh()
-	sleep 0.3
-	frm.Close()
-	local result = proc.ExitCode
-	proc.Close()
-	if result != 0 then
-		messageBox "Sort failed!" title:"Error"
-	else
-		messageBox "Sort completed!" title:"CFTSORT"
+		pb.Value = 100
+		lbl.Text = "Sorting points... 100%"
+		frm.Refresh()
+		sleep 0.3
+		frm.Close()
+		local result = proc.ExitCode
+		proc.Close()
+		if result != 0 then
+			messageBox "Sort failed!" title:"Error"
+		else
+			messageBox "Sort completed!" title:"CFTSORT"
+	) else (
+		-- Max 7 fallback: run via HiddenDOSCommand (no progress bar)
+		SetWaitCursor()
+		local cmd = "\"" + exePath + "\" \"" + cftPath + "\" \"" + bftPath + "\" 14 10"
+		local result = HiddenDOSCommand cmd
+		SetArrowCursor()
+		if result == 0 then
+			messageBox "Sort completed!" title:"CFTSORT"
+		else
+			messageBox "Sort failed!" title:"Error"
+	)
 )
 
 -- Get base filename from current 3ds Max scene, or fall back to "fromviz"
@@ -136,17 +157,28 @@ global lastExportFolder = ""
 -- Open folder browser dialog, return path with trailing backslash or undefined
 fn pickOutputFolder =
 (
-	local fbd = dotNetObject "System.Windows.Forms.FolderBrowserDialog"
-	fbd.Description = "Select folder to save CFT and BFT files"
-	fbd.SelectedPath = if lastExportFolder != "" then lastExportFolder else maxFilePath
-	local dr = fbd.ShowDialog()
-	if dr.Equals ((dotNetClass "System.Windows.Forms.DialogResult").OK) then
-	(
-		lastExportFolder = fbd.SelectedPath
-		(fbd.SelectedPath + "\\")
+	if hasDotNet then (
+		local fbd = dotNetObject "System.Windows.Forms.FolderBrowserDialog"
+		fbd.Description = "Select folder to save CFT and BFT files"
+		fbd.SelectedPath = if lastExportFolder != "" then lastExportFolder else maxFilePath
+		local dr = fbd.ShowDialog()
+		if dr.Equals ((dotNetClass "System.Windows.Forms.DialogResult").OK) then
+		(
+			lastExportFolder = fbd.SelectedPath
+			(fbd.SelectedPath + "\\")
+		)
+		else
+			undefined
+	) else (
+		-- Max 7 fallback: use getSavePath
+		local initDir = if lastExportFolder != "" then lastExportFolder else maxFilePath
+		local path = getSavePath caption:"Select folder to save CFT and BFT files" initialDir:initDir
+		if path != undefined then (
+			lastExportFolder = path
+			(path + "\\")
+		) else
+			undefined
 	)
-	else
-		undefined
 )
 
 on chooseit picked obj do 
@@ -227,23 +259,35 @@ select Dino
 
 on cftSort pressed do
 (
+	local exePath = scriptDir + "cftsort.exe"
+	if scriptDir == "" or not (doesFileExist exePath) do (
+		exePath = getOpenFileName caption:"Locate cftsort.exe" types:"EXE (*.exe)|*.exe"
+		if exePath == undefined do return()
+		scriptDir = getFilenamePath exePath
+	)
 	local folder = pickOutputFolder()
 	if folder != undefined do
 	(
 		local baseName = getSceneName()
 		exportCFT folder baseName chooseit.text
-		runSorter (scriptDir + "cftsort.exe") (folder + baseName + ".cft") (folder + baseName + ".bft")
+		runSorter exePath (folder + baseName + ".cft") (folder + baseName + ".bft")
 	)
 )
 
 on cftSort2 pressed do
 (
+	local exePath = scriptDir + "cftsort32.exe"
+	if scriptDir == "" or not (doesFileExist exePath) do (
+		exePath = getOpenFileName caption:"Locate cftsort32.exe" types:"EXE (*.exe)|*.exe"
+		if exePath == undefined do return()
+		scriptDir = getFilenamePath exePath
+	)
 	local folder = pickOutputFolder()
 	if folder != undefined do
 	(
 		local baseName = getSceneName()
 		exportCFT folder baseName chooseit.text
-		runSorter (scriptDir + "cftsort32.exe") (folder + baseName + ".cft") (folder + baseName + ".bft")
+		runSorter exePath (folder + baseName + ".cft") (folder + baseName + ".bft")
 	)
 )
 
