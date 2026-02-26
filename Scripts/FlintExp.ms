@@ -5,6 +5,17 @@ utility expUtil "Export Flint"
 local scriptDir = ""
 try ( scriptDir = getFilenamePath (execute "getSourceFileName()" ) ) catch ()
 
+local iniFile = (getDir #plugcfg) + "\\FlintExp.ini"
+if scriptDir == "" do (
+	local savedPath = getINISetting iniFile "Settings" "ScriptDir"
+	if savedPath != "" do scriptDir = savedPath
+)
+
+-- Fallback to typical Scripts folder if not found yet
+if scriptDir == "" do (
+	if doesFileExist ((getDir #scripts) + "\\cftsort.exe") do scriptDir = (getDir #scripts) + "\\"
+)
+
 -- Detect .NET support (available since Max 9 / 2007)
 local hasDotNet = false
 try ( dotNetClass "System.Object"; hasDotNet = true ) catch ()
@@ -264,6 +275,7 @@ on cftSort pressed do
 		exePath = getOpenFileName caption:"Locate cftsort.exe" types:"EXE (*.exe)|*.exe"
 		if exePath == undefined do return()
 		scriptDir = getFilenamePath exePath
+		setINISetting iniFile "Settings" "ScriptDir" scriptDir
 	)
 	local folder = pickOutputFolder()
 	if folder != undefined do
@@ -281,6 +293,7 @@ on cftSort2 pressed do
 		exePath = getOpenFileName caption:"Locate cftsort32.exe" types:"EXE (*.exe)|*.exe"
 		if exePath == undefined do return()
 		scriptDir = getFilenamePath exePath
+		setINISetting iniFile "Settings" "ScriptDir" scriptDir
 	)
 	local folder = pickOutputFolder()
 	if folder != undefined do
