@@ -1,40 +1,46 @@
 utility expUtil "Export Flint"
 (
 -- Base directory: folder where this script lives
--- getSourceFileName() requires Max 2013+; use execute() to avoid compile error in Max 7
 local scriptDir = ""
-try ( scriptDir = getFilenamePath (execute "getSourceFileName()" ) ) catch ()
-
 local iniFile = (getDir #plugcfg) + "\\FlintExp.ini"
-if scriptDir == "" do (
-	local savedPath = getINISetting iniFile "Settings" "ScriptDir"
-	if savedPath != "" do scriptDir = savedPath
-)
-
--- Fallback to typical Scripts folder if not found yet
-if scriptDir == "" do (
-	if doesFileExist ((getDir #scripts) + "\\cftsort.exe") do scriptDir = (getDir #scripts) + "\\"
-)
-
--- Detect .NET support (available since Max 9 / 2007)
 local hasDotNet = false
-try ( dotNetClass "System.Object"; hasDotNet = true ) catch ()
-
--- 16-bit EXE cannot run on 64-bit Windows (no NTVDM)
--- Max 7 is always 32-bit, so 16-bit sort is available there
 local is64bit = false
-if hasDotNet do (
-	try ( is64bit = ((dotNetClass "System.Environment").GetEnvironmentVariable "PROCESSOR_ARCHITECTURE") == "AMD64" ) catch ()
-)
 
 global masterXform = (matrix3 1)
 
 label lab2 "Coordinate System"
 pickbutton chooseit "Current Coord System"
-button cftSort "Sort 16-bit" enabled:(not is64bit)
+button cftSort "Sort 16-bit" enabled:true
 button cftSort2 "Sort 32-bit"
 
 button ImpoprtBut "Import CFT..."
+
+on expUtil open do
+(
+	-- getSourceFileName() requires Max 2013+; use execute() to avoid compile error in Max 7
+	try ( scriptDir = getFilenamePath (execute "getSourceFileName()" ) ) catch ()
+
+	if scriptDir == "" do (
+		local savedPath = getINISetting iniFile "Settings" "ScriptDir"
+		if savedPath != "" do scriptDir = savedPath
+	)
+
+	-- Fallback to typical Scripts folder if not found yet
+	if scriptDir == "" do (
+		if doesFileExist ((getDir #scripts) + "\\cftsort.exe") do scriptDir = (getDir #scripts) + "\\"
+	)
+
+	-- Detect .NET support (available since Max 9 / 2007)
+	try ( dotNetClass "System.Object"; hasDotNet = true ) catch ()
+
+	-- 16-bit EXE cannot run on 64-bit Windows (no NTVDM)
+	-- Max 7 is always 32-bit, so 16-bit sort is available there
+	if hasDotNet do (
+		try ( is64bit = ((dotNetClass "System.Environment").GetEnvironmentVariable "PROCESSOR_ARCHITECTURE") == "AMD64" ) catch ()
+	)
+	
+	cftSort.enabled = not is64bit
+)
 
 -- Export scene geometry to CFT file
 fn exportCFT dir name csName =
