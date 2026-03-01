@@ -150,15 +150,16 @@ fn runSorter exePath cftPath bftPath =
 		else
 			messageBox "Sort completed!" title:"CFTSORT"
 	) else (
-		-- Max 7 fallback: run via HiddenDOSCommand (no progress bar)
+		-- Max 7 fallback: DOSCommand exists since early Max versions and waits for exit.
+		-- Return value type varies between versions, so we ignore it and check BFT instead.
 		SetWaitCursor()
 		local cmd = "\"" + exePath + "\" \"" + cftPath + "\" \"" + bftPath + "\" 14 10"
-		local result = HiddenDOSCommand cmd
+		DOSCommand cmd
 		SetArrowCursor()
-		if result == 0 then
+		if doesFileExist bftPath then
 			messageBox "Sort completed!" title:"CFTSORT"
 		else
-			messageBox "Sort failed!" title:"Error"
+			messageBox "Sort failed (BFT not created)!" title:"Error"
 	)
 )
 
