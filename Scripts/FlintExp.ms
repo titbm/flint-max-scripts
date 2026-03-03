@@ -150,16 +150,25 @@ fn runSorter exePath cftPath bftPath =
 		else
 			messageBox "Sort completed!" title:"CFTSORT"
 	) else (
-		-- Max 7 fallback: DOSCommand exists since early Max versions and waits for exit.
-		-- Return value type varies between versions, so we ignore it and check BFT instead.
+		-- Max 7 fallback: WScript.Shell .Run with bWaitOnReturn=true is the most reliable
+		-- way to launch and wait for a console EXE on Max 7 / Windows XP.
+		-- DOSCommand wraps in cmd.exe and can silently fail when the first arg is quoted.
 		SetWaitCursor()
 		local cmd = "\"" + exePath + "\" \"" + cftPath + "\" \"" + bftPath + "\" 14 10"
-		DOSCommand cmd
+		local exitCode = -1
+		local wsh = createOLEObject "WScript.Shell"
+		if wsh != undefined then (
+			-- 0 = hidden window, true = wait for exit
+			exitCode = wsh.Run cmd 0 true
+		) else (
+			-- createOLEObject unavailable: fall back to DOSCommand
+			exitCode = DOSCommand cmd
+		)
 		SetArrowCursor()
-		if doesFileExist bftPath then
+		if exitCode == 0 then
 			messageBox "Sort completed!" title:"CFTSORT"
 		else
-			messageBox "Sort failed (BFT not created)!" title:"Error"
+			messageBox ("Sort failed! (exit code " + exitCode as string + ")") title:"Error"
 	)
 )
 
