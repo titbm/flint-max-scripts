@@ -7,6 +7,7 @@ local hasDotNet = false
 local is64bit = false
 
 global masterXform = (matrix3 1)
+global lastExportFolder = ""
 
 label lab2 "Coordinate System"
 pickbutton chooseit "Current Coord System"
@@ -24,6 +25,9 @@ on expUtil open do
 		local savedPath = getINISetting iniFile "Settings" "ScriptDir"
 		if savedPath != "" do scriptDir = savedPath
 	)
+
+	local savedExportFolder = getINISetting iniFile "Settings" "LastExportFolder"
+	if savedExportFolder != "" do lastExportFolder = savedExportFolder
 
 	-- Fallback to typical Scripts folder if not found yet
 	if scriptDir == "" do (
@@ -179,8 +183,6 @@ fn getSceneName =
 	if n == "" then "fromviz" else n
 )
 
-global lastExportFolder = ""
-
 -- Open folder browser dialog, return path with trailing backslash or undefined
 fn pickOutputFolder =
 (
@@ -191,7 +193,10 @@ fn pickOutputFolder =
 		local dr = fbd.ShowDialog()
 		if dr.Equals ((dotNetClass "System.Windows.Forms.DialogResult").OK) then
 		(
-			lastExportFolder = fbd.SelectedPath
+			if lastExportFolder != fbd.SelectedPath do (
+				lastExportFolder = fbd.SelectedPath
+				setINISetting iniFile "Settings" "LastExportFolder" lastExportFolder
+			)
 			(fbd.SelectedPath + "\\")
 		)
 		else
@@ -201,7 +206,10 @@ fn pickOutputFolder =
 		local initDir = if lastExportFolder != "" then lastExportFolder else maxFilePath
 		local path = getSavePath caption:"Select folder to save CFT and BFT files" initialDir:initDir
 		if path != undefined then (
-			lastExportFolder = path
+			if lastExportFolder != path do (
+				lastExportFolder = path
+				setINISetting iniFile "Settings" "LastExportFolder" lastExportFolder
+			)
 			(path + "\\")
 		) else
 			undefined
